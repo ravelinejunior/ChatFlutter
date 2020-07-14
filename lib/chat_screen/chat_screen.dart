@@ -16,7 +16,10 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   //var snackbar
-  final GlobalKey<ScaffoldState> _globalKey = GlobalKey<ScaffoldState>();
+  final _globalKey = GlobalKey<ScaffoldState>();
+
+  bool _isLoading = false;
+
   //var usuario
   FirebaseUser _currentUser;
   //var google
@@ -58,7 +61,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
     //recuperar usuario quando algo mudar ou estado atual inicializar
     FirebaseAuth.instance.onAuthStateChanged.listen((user) {
-      _currentUser = user;
+      setState(() {
+        _currentUser = user;
+      });
     });
   }
 
@@ -81,6 +86,8 @@ class _ChatScreenState extends State<ChatScreen> {
       "uid": user.uid,
       "senderName": user.displayName,
       "senderPhotoUrl": user.photoUrl,
+      "timeStamp": Timestamp.now(),
+      "timeSend": DateTime.now().toIso8601String().trim()
     };
     //verificar se img é nulo
     if (imgFile != null) {
@@ -90,9 +97,17 @@ class _ChatScreenState extends State<ChatScreen> {
           .child(DateTime.now().millisecondsSinceEpoch.toString())
           .putFile(imgFile);
 
+      setState(() {
+        _isLoading = true;
+      });
+
       StorageTaskSnapshot taskSnapshot = await task.onComplete;
       String url = await taskSnapshot.ref.getDownloadURL();
       dataFirebase['imageUrl'] = url;
+
+      setState(() {
+        _isLoading = false;
+      });
     }
 
     //adicionar texto ao firebase
@@ -105,6 +120,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _globalKey,
       appBar: appBar(),
       body: Column(
         children: <Widget>[
@@ -112,7 +128,10 @@ class _ChatScreenState extends State<ChatScreen> {
             child:
                 //utilizar streambuilder para recriar os dados atraves do firebase sempre que houver uma alteração
                 StreamBuilder<QuerySnapshot>(
-              stream: Firestore.instance.collection("Messages").snapshots(),
+              stream: Firestore.instance
+                  .collection("Messages")
+                  .orderBy('timeStamp')
+                  .snapshots(),
               builder: (builder, snapshot) {
                 switch (snapshot.connectionState) {
                   case ConnectionState.none:
@@ -130,29 +149,59 @@ class _ChatScreenState extends State<ChatScreen> {
                         reverse: true, // lista de baixo para cima
                         itemCount: documents.length,
                         itemBuilder: (context, index) {
-                          return ChatMessage(documents[index].data, true);
+                          return ChatMessage(
+                              documents[index].data,
+                              documents[index].data['uid'] ==
+                                  _currentUser
+                                      ?.uid); //interrogação para denotar se está nulo
                         });
                 }
               },
             ),
           ),
+          //verificar se imagem está sendo carregada
+          _isLoading
+              ? LinearProgressIndicator(
+                  semanticsLabel: "Carregando...",
+                )
+              : Container(),
           TextComposer(_sendMessage),
         ],
       ),
     );
   }
-}
 
-//appBar
-Widget appBar() {
-  return AppBar(
-    centerTitle: true,
-    title: Text(
-      "Chat",
-      textAlign: TextAlign.center,
-      style: TextStyle(color: Colors.white, fontSize: 25.0),
-    ),
-    backgroundColor: Colors.redAccent,
-    elevation: 1,
-  );
+  //appBar
+  Widget appBar() {
+    return AppBar(
+      centerTitle: true,
+      title: Text(
+        _currentUser != null ? 'Olá, ${_currentUser.displayName}' : 'Chat',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Colors.white, fontSize: 20.0),
+      ),
+      backgroundColor: Colors.redAccent,
+      elevation: 1,
+      actions: <Widget>[
+        _currentUser != null
+            ? IconButton(
+                icon: Icon(
+                  Icons.exit_to_app,
+                  color: Colors.amber[50],
+                ),
+                onPressed: () {
+                  print(DateTime.now());
+                  FirebaseAuth.instance.signOut();
+                  googleSignIn.signOut();
+                  _globalKey.currentState.showSnackBar(
+                    SnackBar(
+                      content: Text("Logout realizado com sucesso!"),
+                    ),
+                  );
+                },
+              )
+            : Container()
+      ],
+    );
+  }
 }

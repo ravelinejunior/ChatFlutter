@@ -30,7 +30,11 @@ class ChatMessage extends StatelessWidget {
                         data['imageUrl'],
                         width: 250.0,
                       )
-                    : textMensagemEnviada(),
+                    : Padding(
+                        padding: const EdgeInsets.all(10.0),
+                        child: textMensagemEnviada(),
+                      ),
+                textTimeSend(),
               ],
             ),
           ),
@@ -68,7 +72,17 @@ class ChatMessage extends StatelessWidget {
       data['textMessage'],
       //caso mensagem seja minha e caso nao
       textAlign: !mine ? TextAlign.start : TextAlign.end,
-      style: TextStyle(fontSize: 16.0, color: Colors.black38),
+      style: TextStyle(fontSize: 20.0, color: Colors.black54),
+    );
+  }
+
+  //texto hora envio
+  Widget textTimeSend() {
+    return Text(
+      data['timeSend'].toString(),
+      //caso mensagem seja minha e caso nao
+      textAlign: !mine ? TextAlign.start : TextAlign.end,
+      style: TextStyle(fontSize: 16.0, color: Colors.black45),
     );
   }
 }
